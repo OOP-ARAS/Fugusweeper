@@ -1,209 +1,195 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import javax.swing.*;
 import java.util.*;
 
-public class Main extends Frame {
+/* Missing:
+ * 	Restart
+ * 	Images
+ * 	Game state handling
+ * Needs fix:
+ * 	Fugu num indicator not set properly
+ */
 
-    public static void main(String[] args) {
-        new Main();
-    }
-    int rows = 8; //X   ////Galimai useless, galima daryti kad visada kvadratas bet taip labiau cool
-    int cols = 8; //Y
-    int tileSize = 50; // Size of each tile itself SHOULD BE DEPRECATED
-    boolean[][] revealed; // Tracks if tile is revealed
-    boolean [][] marked; //Tracks if marked
-    int bombCount = 10;
-    boolean[][] bombs; //Locations of bombs
-    boolean gameOver;
-    Image bombImage; //.png of da boom boom
-    Image markImage; //Image for when right-clicked
-   
-    int scrW = (int)getSize().getWidth();
-    int scrH = (int)getSize().getHeight();
+class CellsPanel extends JPanel implements MouseListener {
+    private GameSession gameSession;
 
-    public Main() {
-        bombImage = Toolkit.getDefaultToolkit().getImage("Fugnus1.png");
-        markImage = Toolkit.getDefaultToolkit().getImage("CoralReef.png");
+    private int marginX;
+    private int marginY;
+    private int numCells;
+    private int squareSize;
+    private int startX;
+    private int startY;
 
-        setTitle("Fugusweeper");
-        //setSize(cols * tileSize + 20, rows * tileSize + 80); //Adds some kad netouchintu borderio + restartui
-        setVisible(true);
+    private int[][] cellStatus;
+    private int[][] cellNearby;
 
-        revealed = new boolean[rows][cols];
-        marked = new boolean[rows][cols];
-        bombs = new boolean[rows][cols];
-        gameOver = false;
+    public CellsPanel(GameSession gameSession) {
+	this.gameSession = gameSession;
+        this.numCells = gameSession.getCells();
+	this.cellStatus = new int[numCells][numCells];
+	this.cellNearby = new int[numCells][numCells];
 
-        placeBombs();
-
-        /*kaip veikia? nzn nesigilinu borderiu pasauly
-
-        The issue with the restart button taking up the entire program window is due to the way components are added to
-         a Frame in AWT. By default, the layout manager for a Frame is BorderLayout, which can lead to being displayed in full screen
-
-        To solve this issue, we use a Panel with a FlowLayout to hold the button, and then add that panel to the
-        Frame.
-        */
-
-        setLayout(new BorderLayout()); //BorderLayout for Frame
-
-        Button restartButton = new Button("Restart"); // NEW RESTART BUTTON
-        //restartButton.setPreferredSize(new Dimension(80, 60));
-	restartButton.setBounds(scrW, scrH, scrW, scrH);
-        restartButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                revealed = new boolean[rows][cols];
-                marked = new boolean[rows][cols];
-                bombs = new boolean[rows][cols];
-                gameOver = false;
-
-                placeBombs();
-                repaint();
-            }
-        });
-
-        Panel buttonPanel = new Panel(); //Panel to hold the button
-        buttonPanel.setLayout(new FlowLayout()); //FlowLayout for the Panel
-        buttonPanel.add(restartButton);
-        add(buttonPanel, BorderLayout.SOUTH); // Add Panel to the Frame
-
-	addComponentListener(new ComponentAdapter() {
-	    public void componentResized(ComponentEvent componentEvent) {
-		System.out.println("resized" + getSize());
-		scrW = (int)getSize().getWidth();
-		scrH = (int)getSize().getHeight();
-
-	    }
-	});
-
-        addWindowListener(new WindowAdapter() {
-            public void windowClosing(WindowEvent e) {
-                System.exit(0);
-            }
-        });
-
-        //leaving debug actions, if you plan to change program size a lot you should make this a math equation
-        // i cba so its just hardcoded vale for now
-
-
-        addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent press) {
-                if (gameOver) {
-                    return; //Does not let player click anymore if game is over
-                }
-
-		int nH = scrH - scrH/8;
-		int w = nH/cols;
-		
-		// Need a better formula for clicking
-                int row = ((press.getY() + scrH/16 - w) / w);
-                int col = ((press.getX() - w*rows/2 + w/2) / w);
-                //System.out.println("Y " + press.getY());
-                //System.out.println("X " + press.getX());
-                //System.out.println("ROW " + row);
-                //System.out.println("COL " + col);
-
-                if (row >= 0 && row < rows && col >= 0 && col < cols) {
-                    if (press.getButton() == MouseEvent.BUTTON1) {
-                        if (bombs[row][col]) {
-                            gameOver = true;
-                            for (int temprow = 0; temprow < rows; temprow++) {
-                                for (int tempcol = 0; tempcol < cols; tempcol++) {
-                                    if (bombs[temprow][tempcol]) { //Reveals all bombs. Kind of sviestas sviestuotas situation but whatever
-                                        revealed[temprow][tempcol] = true;
-                                    }
-                                }
-                            }
-                        } else {
-                            revealed[row][col] = true;
-                        }
-                        repaint(); //Kviecia paint su braindead awt logika kur g yra simboliskai revealed masyvas
-                    }
-                }
-                if(press.getButton() == MouseEvent.BUTTON3) { //Desinys mouse
-                    marked[row][col] = !marked[row][col]; //Pajungia ta tile kaip marked/unmarke
-                    repaint();
-                }
-            }
-        });
+        addMouseListener(this);
     }
 
-    private void placeBombs() {
-        Random rand = new Random();
-        int placedBombs = 0;
+    public void setMargin(int marginX, int marginY) {
+        this.marginX = marginX;
+        this.marginY = marginY;
+        calculateGrid();
+    }
 
-        while (placedBombs < bombCount) {
-            int x = rand.nextInt(rows);
-            int y = rand.nextInt(cols);
+    private void calculateGrid() {
+        int width = getWidth();
+        int height = getHeight();
+        int drawableWidth = width - 2 * marginX;
+        int drawableHeight = height - 2 * marginY;
 
-            if (!bombs[x][y]) { // Ensure no duplicates
-                bombs[x][y] = true;
-                placedBombs++;
+        squareSize = Math.min(drawableWidth, drawableHeight) / numCells;
+
+        startX = marginX + (drawableWidth - squareSize * numCells) / 2;
+        startY = marginY + (drawableHeight - squareSize * numCells) / 2;
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        calculateGrid();
+
+        Font font = new Font("Comic Sans MS", Font.BOLD, 20);
+        g.setFont(font);
+        FontMetrics metrics = g.getFontMetrics(font);
+
+        // Header, doesn't respect resizability
+        int stringWidth = metrics.stringWidth("Fugusweeper");
+        g.drawString("Fugusweeper", getWidth() / 2 - stringWidth / 2, 20);
+
+        for (int i = 0; i < numCells; i++) {
+            for (int j = 0; j < numCells; j++) {
+                int x = startX + i * squareSize;
+                int y = startY + j * squareSize;
+		if (cellStatus[i][j] == 0) {
+		    g.setColor(Color.DARK_GRAY);
+		}
+		else if (cellStatus[i][j] == 1) {
+		    if (cellNearby[i][j] > 0) {
+			g.setColor(Color.BLACK);
+                        g.drawString(Integer.toString(cellNearby[i][j]), x, y);
+		    }
+		    g.setColor(Color.BLUE);
+		}
+		g.fillRect(x, y, squareSize, squareSize);
+	        g.setColor(Color.BLACK);
+                g.drawRect(x, y, squareSize, squareSize);
             }
         }
     }
 
     @Override
-    public void paint(Graphics g) {
+    public void mouseClicked(MouseEvent e) {
+        int relativeX = (e.getX() - startX) / squareSize;
+        int relativeY = (e.getY() - startY) / squareSize;
 
-        //g.setColor(Color.BLACK);
-        //g.drawRect(10, 30, scrH/cols, scrW/rows);
+	if ((relativeX >= 0 && relativeX < numCells) && (relativeY >= 0 && relativeY < numCells)) {
+	    System.out.println("(" + relativeX + ", " + relativeY + ")");
+	    cellNearby[relativeX][relativeY] = gameSession.getNearby(relativeX, relativeY);
+	    cellStatus[relativeX][relativeY] = gameSession.revealCell(relativeX, relativeY);
+	    repaint();
+	}
+    }
 
-        //fontas neveike nes comic sans >MS<
-        Font font = new Font("Comic Sans MS", Font.BOLD, 20);
-        g.setFont(font);
-        FontMetrics metrics = g.getFontMetrics(font);
-        int stringWidth = metrics.stringWidth("Fugusweeper");                    //135-137 vis dar neveikia :(
-        g.drawString("Fugusweeper", getWidth() / 2 - stringWidth / 2, 20); //Turetu per viduri borderio rasyti pavadinima
+    // These must be present because of implementation
+    @Override
+    public void mousePressed(MouseEvent e) {}
+    @Override
+    public void mouseReleased(MouseEvent e) {}
+    @Override
+    public void mouseEntered(MouseEvent e) {}
+    @Override
+    public void mouseExited(MouseEvent e) {}
+}
 
+class GameSession {
+    private int numCells;
+    private int numFugus;
 
-        //MAIN UZPILDYMAS
-        for (int row = 0; row < rows; row++) {
-            for (int col = 0; col < cols; col++) {
-		int nW = scrW - scrW/16;
-		int nH = scrH - scrH/8;
-		int w = nH/cols;
-		int h = nH/rows;
-                int x = col * w + scrW/2 - w*rows/2;
-                int y = row * h + scrH/16;
+    private boolean[][] fugus;
 
-                if (revealed[row][col]) {
-                    int neighborBombs = countNearBombs(row, col);
-                    g.setColor(Color.BLUE);                 //TILE
-                    g.fillRect(x, y, w, h);
-                    g.setColor(Color.BLACK);                //BORDERIS
-                    g.drawRect(x, y, w, h);
-                    if (bombs[row][col]) { //If tile has bomb show it
-                        g.drawImage(bombImage, x, y, w, h, this);
-                    } else if (neighborBombs > 0) {
-                        g.drawString(Integer.toString(neighborBombs), x + w/2 - 5, y + w/2 + 5); // -5+5 kad vidury butu
-                    }
-                } else {                                    //JEI DAR NIEKO NERA, UZPILDO GRAY (pradzioje)
-                    g.setColor(Color.DARK_GRAY);
-                    g.fillRect(x, y, w, h);
-                    g.setColor(Color.BLACK);
-                    g.drawRect(x, y, w, h);
-                    if (marked[row][col]) {
-                        g.drawImage(markImage, x, y, w, h, this);
-                    }
-                    //g.drawImage(bombImage, x, y, tileSize, tileSize, this); //TESTAVIMUI AR IS VIS KAZKA DRAWINA IS VIS
+    public GameSession(int numCells, int numFugus) {
+	this.numCells = numCells;
+	this.numFugus = numFugus;
+	this.fugus = new boolean[numCells][numCells];
+
+	initFugus();
+    }
+    public int getCells() {
+	return this.numCells;
+    }
+    public int revealCell(int x, int y) {
+	if (fugus[x][y] == true) {
+	    return 3;
+	}
+	else {
+	    return 1;
+	}
+    }
+    public int getNearby(int x, int y) {
+        int iFugus = 0;
+        for (int i = -1; i <= 1; i++) {
+            for (int j = -1; j <= 1; j++) {
+                int iX = x + i;
+                int jY = y + j;
+                if (iX >= 0 && iX < numCells && jY >= 0 && jY < numCells && fugus[iX][jY]) {
+                    iFugus++;
                 }
+            }
+        }
+        return iFugus;
+    }
+    private void initFugus() {
+        Random random = new Random();
+        int iNumFugus = 0;
+
+        while (iNumFugus < numFugus) {
+            int randomX = random.nextInt(numCells);
+            int randomY = random.nextInt(numCells);
+
+            if (fugus[randomX][randomY] == false) {
+                fugus[randomX][randomY] = true;
+                iNumFugus++;
             }
         }
     }
 
-    private int countNearBombs(int row, int col) {
-        int count = 0;
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                int r = row + dr;
-                int c = col + dc;
-                if (r >= 0 && r < rows && c >= 0 && c < cols && bombs[r][c]) {
-                    count++;
-                }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        int numCells = 20;
+	int numFugus = 40;
+
+	GameSession gameSession = new GameSession(numCells, numFugus);
+
+        JFrame frame = new JFrame("Fugusweeper");
+        CellsPanel panel = new CellsPanel(gameSession);
+
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 800);
+        frame.add(panel);
+        frame.setVisible(true);
+
+        // Initialize margin
+        int marginX = frame.getWidth() / 16;
+        int marginY = frame.getHeight() / 16;
+        panel.setMargin(marginX, marginY);
+
+        frame.addComponentListener(new java.awt.event.ComponentAdapter() {
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent evt) {
+                int newMarginX = frame.getWidth() / 16;
+                int newMarginY = frame.getHeight() / 16;
+                panel.setMargin(newMarginX, newMarginY);
             }
-        }
-        return count;
+        });
     }
 }
