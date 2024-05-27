@@ -10,7 +10,7 @@ public class Main extends Frame {
     }
     int rows = 8; //X   ////Galimai useless, galima daryti kad visada kvadratas bet taip labiau cool
     int cols = 8; //Y
-    int tileSize = 50; // Size of each tile itself
+    int tileSize = 50; // Size of each tile itself SHOULD BE DEPRECATED
     boolean[][] revealed; // Tracks if tile is revealed
     boolean [][] marked; //Tracks if marked
     int bombCount = 10;
@@ -18,14 +18,16 @@ public class Main extends Frame {
     boolean gameOver;
     Image bombImage; //.png of da boom boom
     Image markImage; //Image for when right-clicked
+   
+    int scrW = (int)getSize().getWidth();
+    int scrH = (int)getSize().getHeight();
 
     public Main() {
-        //bombImage = Toolkit.getDefaultToolkit().getImage("C:\\Users\\ignas\\Desktop\\Fugnus1.png"); // Load the bomb image
-        bombImage = Toolkit.getDefaultToolkit().getImage("Fugnus1.png"); //Image turi buti NE SRC DIREKTORIJOJ O TEVINEJ
+        bombImage = Toolkit.getDefaultToolkit().getImage("Fugnus1.png");
         markImage = Toolkit.getDefaultToolkit().getImage("CoralReef.png");
 
         setTitle("Fugusweeper");
-        setSize(cols * tileSize + 20, rows * tileSize + 80); //Adds some kad netouchintu borderio + restartui
+        //setSize(cols * tileSize + 20, rows * tileSize + 80); //Adds some kad netouchintu borderio + restartui
         setVisible(true);
 
         revealed = new boolean[rows][cols];
@@ -42,12 +44,13 @@ public class Main extends Frame {
 
         To solve this issue, we use a Panel with a FlowLayout to hold the button, and then add that panel to the
         Frame.
-        * */
+        */
 
         setLayout(new BorderLayout()); //BorderLayout for Frame
 
         Button restartButton = new Button("Restart"); // NEW RESTART BUTTON
-        restartButton.setPreferredSize(new Dimension(80, 30));
+        //restartButton.setPreferredSize(new Dimension(80, 60));
+	restartButton.setBounds(scrW, scrH, scrW, scrH);
         restartButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 revealed = new boolean[rows][cols];
@@ -65,6 +68,15 @@ public class Main extends Frame {
         buttonPanel.add(restartButton);
         add(buttonPanel, BorderLayout.SOUTH); // Add Panel to the Frame
 
+	addComponentListener(new ComponentAdapter() {
+	    public void componentResized(ComponentEvent componentEvent) {
+		System.out.println("resized" + getSize());
+		scrW = (int)getSize().getWidth();
+		scrH = (int)getSize().getHeight();
+
+	    }
+	});
+
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
                 System.exit(0);
@@ -80,8 +92,13 @@ public class Main extends Frame {
                 if (gameOver) {
                     return; //Does not let player click anymore if game is over
                 }
-                int row = ((press.getY() -30) / tileSize) ; //Remove 30 for windows ui at top
-                int col = ((press.getX() -10) / tileSize) ; //Remove 10 for side borders
+
+		int nH = scrH - scrH/8;
+		int w = nH/cols;
+		
+		// Need a better formula for clicking
+                int row = ((press.getY() + scrH/16 - w) / w);
+                int col = ((press.getX() - w*rows/2 + w/2) / w);
                 //System.out.println("Y " + press.getY());
                 //System.out.println("X " + press.getX());
                 //System.out.println("ROW " + row);
@@ -130,8 +147,8 @@ public class Main extends Frame {
     @Override
     public void paint(Graphics g) {
 
-        g.setColor(Color.BLACK);
-        g.drawRect(10, 30, cols * tileSize, rows * tileSize);
+        //g.setColor(Color.BLACK);
+        //g.drawRect(10, 30, scrH/cols, scrW/rows);
 
         //fontas neveike nes comic sans >MS<
         Font font = new Font("Comic Sans MS", Font.BOLD, 20);
@@ -144,28 +161,31 @@ public class Main extends Frame {
         //MAIN UZPILDYMAS
         for (int row = 0; row < rows; row++) {
             for (int col = 0; col < cols; col++) {
-                int x = col * tileSize + 10;
-                int y = row * tileSize + 30;
-
+		int nW = scrW - scrW/16;
+		int nH = scrH - scrH/8;
+		int w = nH/cols;
+		int h = nH/rows;
+                int x = col * w + scrW/2 - w*rows/2;
+                int y = row * h + scrH/16;
 
                 if (revealed[row][col]) {
                     int neighborBombs = countNearBombs(row, col);
                     g.setColor(Color.BLUE);                 //TILE
-                    g.fillRect(x, y, tileSize, tileSize);
+                    g.fillRect(x, y, w, h);
                     g.setColor(Color.BLACK);                //BORDERIS
-                    g.drawRect(x, y, tileSize, tileSize);
+                    g.drawRect(x, y, w, h);
                     if (bombs[row][col]) { //If tile has bomb show it
-                        g.drawImage(bombImage, x, y, tileSize, tileSize, this);
+                        g.drawImage(bombImage, x, y, w, h, this);
                     } else if (neighborBombs > 0) {
-                        g.drawString(Integer.toString(neighborBombs), x -5 + tileSize / 2, y +5 + tileSize / 2); // -5+5 kad vidury butu
+                        g.drawString(Integer.toString(neighborBombs), x + w/2 - 5, y + w/2 + 5); // -5+5 kad vidury butu
                     }
                 } else {                                    //JEI DAR NIEKO NERA, UZPILDO GRAY (pradzioje)
                     g.setColor(Color.DARK_GRAY);
-                    g.fillRect(x, y, tileSize, tileSize);
+                    g.fillRect(x, y, w, h);
                     g.setColor(Color.BLACK);
-                    g.drawRect(x, y, tileSize, tileSize);
+                    g.drawRect(x, y, w, h);
                     if (marked[row][col]) {
-                        g.drawImage(markImage, x, y, tileSize, tileSize, this);
+                        g.drawImage(markImage, x, y, w, h, this);
                     }
                     //g.drawImage(bombImage, x, y, tileSize, tileSize, this); //TESTAVIMUI AR IS VIS KAZKA DRAWINA IS VIS
                 }
