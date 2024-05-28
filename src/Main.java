@@ -164,6 +164,7 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
 		    if (revealedCellState == -1) {
 			headerText = "You won!!!";
 			freezePanel = true;
+			revealedCellState = 1;
 		    }
 		    else if (revealedCellState == 3) {
 			headerText = "You lost!!!";
@@ -211,7 +212,7 @@ class Fugusweeper {
     // Constructor
     public Fugusweeper(int numCells) {
 	setNumCells(numCells);
-	setNumFugus(numCells*numCells/8); // Temporary
+	setNumFugus(numCells*numCells/14); // Temporary
 	this.fugus = new boolean[numCells][numCells];
 	this.revealed = new boolean[numCells][numCells];
 
@@ -241,10 +242,11 @@ class Fugusweeper {
 	    this.numCellsLeft = getNumCells()*getNumCells() - numFugus;
 	}
     }
-    // Used for updates
+    // Used for updating
     public void setNumCellsLeft(int numCellsLeft) {
 	this.numCellsLeft = numCellsLeft;
     }
+
     // Other methods
     public int revealCell(int x, int y) {
 	if (fugus[x][y] == true) {
