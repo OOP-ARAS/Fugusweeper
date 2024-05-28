@@ -3,8 +3,11 @@ import java.awt.event.*;
 import javax.swing.*;
 import java.util.*;
 
-/* Missing:
- * 	Restart
+/* To implement:
+ *	Algorithm classes for fugu assignment, algorithms differs in difficulties
+ * 	Main menu, where you can set difficulty, load game, etc
+ *	Save button, this should be next to restart button, it will point you to other menu
+ *	Header text box
  * Enums:
  * 	0 - Unrevealed
  * 	1 - Revealed
@@ -19,40 +22,61 @@ class Fugusweeper_JFrame extends JFrame {
     public Fugusweeper_JFrame(Fugusweeper fugusweeper) {
 	this.fugusweeper = fugusweeper;
 
-	Fugusweeper_JPanel panel = new Fugusweeper_JPanel(fugusweeper);
 	setDefaultCloseOperation(this.EXIT_ON_CLOSE);
 	setSize(800, 800);
-	add(panel);
+	setLayout(new GridBagLayout());
+
+	Fugusweeper_JPanel panel = new Fugusweeper_JPanel(fugusweeper);
+	Fugusweeper_JButton button = new Fugusweeper_JButton(fugusweeper, panel);
+
+        GridBagConstraints gbc = new GridBagConstraints();
+	gbc.insets = new Insets(0, 0, 0, 0);
+	gbc.anchor = GridBagConstraints.CENTER;
+	gbc.fill = GridBagConstraints.BOTH;
+
+	gbc.weightx = 1.0;
+	gbc.weighty = 0.9;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+	add(panel, gbc);
+
+	gbc.weightx = 1.0;
+	gbc.weighty = 0.1;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+	add(button, gbc);
+
 	setVisible(true);
+    }
+}
+class Fugusweeper_JButton extends JButton {
+    private Fugusweeper fugusweeper;
+    private Fugusweeper_JPanel fugusweeper_jpanel;
 
-	// Initialize margin
-	int marginX = getWidth() / 16;
-	int marginY = getHeight() / 16;
-	panel.setMargin(marginX, marginY);
+    public Fugusweeper_JButton(Fugusweeper fugusweeper, Fugusweeper_JPanel fugusweeper_jpanel) {
+	this.fugusweeper = fugusweeper;
+	this.fugusweeper_jpanel = fugusweeper_jpanel;
 
-	addComponentListener(new java.awt.event.ComponentAdapter() {
-	@Override
-	public void componentResized(java.awt.event.ComponentEvent evt) {
-	    int newMarginX = getWidth() / 16;
-	    int newMarginY = getHeight() / 16;
-	    panel.setMargin(newMarginX, newMarginY);
-	}
-	});
+        setText("Restart");
+
+        addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                fugusweeper.initFugus();
+		fugusweeper_jpanel.resetCellState();
+            }
+        });
     }
 
-
 }
-
 class Fugusweeper_JPanel extends JPanel implements MouseListener {
     private Fugusweeper fugusweeper;
 
-    private int marginX;
-    private int marginY;
     private int startX;
     private int startY;
     private int numCells;
     private int cellSize;
-    private String headerText;
+    private String headerText; // DEPRECATED, GET OTHER CLASS
     private boolean freezePanel;
 
     private int[][] cellState;
@@ -61,7 +85,6 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
     private Image fuguImage;
     private Image flagImage;
     private Font font;
-    private FontMetrics fontMetrics;
 
     public Fugusweeper_JPanel(Fugusweeper fugusweeper) {
 	this.fugusweeper = fugusweeper;
@@ -78,22 +101,20 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
         addMouseListener(this);
     }
 
-    public void setMargin(int marginX, int marginY) {
-        this.marginX = marginX;
-        this.marginY = marginY;
-        calculateGrid();
+    // Also resets cellNearby
+    public void resetCellState() {
+	this.cellState = new int[numCells][numCells];
+	this.cellNearby = new int[numCells][numCells];
+	freezePanel = false;
+	
+	repaint();
     }
 
     private void calculateGrid() {
-        int width = getWidth();
-        int height = getHeight();
-        int drawableWidth = width - 2 * marginX;
-        int drawableHeight = height - 2 * marginY;
+        cellSize = Math.min(getWidth(), getHeight()) / numCells;
 
-        cellSize = Math.min(drawableWidth, drawableHeight) / numCells;
-
-        startX = marginX + (drawableWidth - cellSize * numCells) / 2;
-        startY = marginY + (drawableHeight - cellSize * numCells) / 2;
+        startX = (getWidth() - cellSize * numCells) / 2;
+        startY = (getHeight() - cellSize * numCells) / 2;
     }
 
     @Override
@@ -101,17 +122,17 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
         super.paintComponent(g);
         calculateGrid();
 
-
-        // Header
+        // Header, NOW DEPRECATED, GET OTHER CLASS
+	/*
 	font = new Font("Comic Sans MS", Font.BOLD, marginY);
         g.setFont(font);
         fontMetrics = g.getFontMetrics(font);
         g.drawString(headerText, getWidth() / 2 - fontMetrics.stringWidth(headerText) / 2, 3*marginY/4);
+	*/
 	
 	// Cell fugu nearby indicator
 	font = new Font("Comic Sans MS", Font.BOLD, cellSize);
         g.setFont(font);
-        //fontMetrics = g.getFontMetrics(font);
 
         for (int i = 0; i < numCells; i++) {
             for (int j = 0; j < numCells; j++) {
@@ -213,8 +234,6 @@ class Fugusweeper {
     public Fugusweeper(int numCells) {
 	setNumCells(numCells);
 	setNumFugus(numCells*numCells/14); // Temporary
-	this.fugus = new boolean[numCells][numCells];
-	this.revealed = new boolean[numCells][numCells];
 
 	initFugus();
 
@@ -281,7 +300,10 @@ class Fugusweeper {
         return iFugus;
     }
     // This can use algorithm classes instead
-    private void initFugus() {
+    public void initFugus() {
+	this.fugus = new boolean[getNumCells()][getNumCells()];
+	this.revealed = new boolean[getNumCells()][getNumCells()];
+
         Random random = new Random();
         int iNumFugus = 0;
 
@@ -299,6 +321,6 @@ class Fugusweeper {
 
 public class Main {
     public static void main(String[] args) {
-	Fugusweeper fugusweeper = new Fugusweeper(7);
+	Fugusweeper fugusweeper = new Fugusweeper(20);
     }
 }
