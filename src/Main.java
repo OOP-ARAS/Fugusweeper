@@ -20,6 +20,7 @@ class Fugusweeper_JFrame extends JFrame {
 
     // Constructor
     public Fugusweeper_JFrame(Fugusweeper fugusweeper) {
+        super("FuguSweeper");
 	this.fugusweeper = fugusweeper;
 
 	setDefaultCloseOperation(this.EXIT_ON_CLOSE);
@@ -190,6 +191,7 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
 		    else if (revealedCellState == 3) {
 			headerText = "You lost!!!";
 			freezePanel = true;
+            revealAllFugu();
 		    }
 		    cellState[relativeX][relativeY] = revealedCellState;
 		    cellNearby[relativeX][relativeY] = fugusweeper.getNearby(relativeX, relativeY);
@@ -207,6 +209,17 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
 	    }
 	    repaint();
 	}
+    }
+
+    private void revealAllFugu() {
+        for (int i = 0; i < numCells; i++) {
+            for (int j = 0; j < numCells; j++) {
+                if (fugusweeper.isFugu(i, j)) {
+                    cellState[i][j] = 3;
+                }
+            }
+        }
+        repaint();
     }
 
     // These must be present because of implementation
@@ -229,6 +242,10 @@ class Fugusweeper {
 
     private boolean[][] fugus;
     private boolean[][] revealed;
+    public boolean isFugu(int x, int y) //could just be implemented by making "fugus" public
+    {
+        return fugus[x][y];
+    }
 
     // Constructor
     public Fugusweeper(int numCells) {
@@ -321,6 +338,6 @@ class Fugusweeper {
 
 public class Main {
     public static void main(String[] args) {
-	Fugusweeper fugusweeper = new Fugusweeper(20);
+	Fugusweeper fugusweeper = new Fugusweeper(10);
     }
 }
