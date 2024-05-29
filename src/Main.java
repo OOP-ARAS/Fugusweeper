@@ -4,10 +4,9 @@ import javax.swing.*;
 import java.util.*;
 
 /* To implement:
- *	Algorithm classes for fugu assignment, algorithms differs in difficulties
- * 	Main menu, where you can set difficulty, load game, etc
+ *	Algorithm classes for fugu assignment, this is for difficulty
+ * 	Main menu, where you can set difficulty, load game, start game
  *	Save button, this should be next to restart button, it will point you to other menu
- *	Header text box
  * Enums:
  * 	0 - Unrevealed
  * 	1 - Revealed
@@ -20,15 +19,16 @@ class Fugusweeper_JFrame extends JFrame {
 
     // Constructor
     public Fugusweeper_JFrame(Fugusweeper fugusweeper) {
-        super("FuguSweeper");
+	super("Fugusweeper"); // Calls superclass's constructor to set title, should be called before everything
 	this.fugusweeper = fugusweeper;
 
 	setDefaultCloseOperation(this.EXIT_ON_CLOSE);
 	setSize(800, 800);
 	setLayout(new GridBagLayout());
 
-	Fugusweeper_JPanel panel = new Fugusweeper_JPanel(fugusweeper);
-	Fugusweeper_JButton button = new Fugusweeper_JButton(fugusweeper, panel);
+	Fugusweeper_JLabel label = new Fugusweeper_JLabel(fugusweeper);
+	Fugusweeper_JPanel panel = new Fugusweeper_JPanel(fugusweeper, label);
+	Fugusweeper_JButton button = new Fugusweeper_JButton(fugusweeper, panel, label);
 
         GridBagConstraints gbc = new GridBagConstraints();
 	gbc.insets = new Insets(0, 0, 0, 0);
@@ -37,26 +37,41 @@ class Fugusweeper_JFrame extends JFrame {
 
 	gbc.weightx = 1.0;
 	gbc.weighty = 0.9;
+	gbc.gridwidth = 2;
         gbc.gridx = 0;
         gbc.gridy = 0;
 	add(panel, gbc);
 
 	gbc.weightx = 1.0;
 	gbc.weighty = 0.1;
+	gbc.gridwidth = 1;
         gbc.gridx = 0;
         gbc.gridy = 1;
-	add(button, gbc);
+	JScrollPane scrollPaneButton = new JScrollPane(button);
+	add(scrollPaneButton, gbc);
 
+	gbc.weightx = 1.0;
+	gbc.weighty = 0.1;
+	gbc.gridwidth = 1;
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+	JScrollPane scrollPaneLabel = new JScrollPane(label);
+	add(scrollPaneLabel, gbc);
+
+	pack();
+	setLocationRelativeTo(null);
 	setVisible(true);
     }
 }
 class Fugusweeper_JButton extends JButton {
     private Fugusweeper fugusweeper;
     private Fugusweeper_JPanel fugusweeper_jpanel;
+    private Fugusweeper_JLabel fugusweeper_jlabel;
 
-    public Fugusweeper_JButton(Fugusweeper fugusweeper, Fugusweeper_JPanel fugusweeper_jpanel) {
+    public Fugusweeper_JButton(Fugusweeper fugusweeper, Fugusweeper_JPanel fugusweeper_jpanel, Fugusweeper_JLabel fugusweeper_jlabel) {
 	this.fugusweeper = fugusweeper;
 	this.fugusweeper_jpanel = fugusweeper_jpanel;
+	this.fugusweeper_jlabel = fugusweeper_jlabel;
 
         setText("Restart");
 
@@ -65,19 +80,32 @@ class Fugusweeper_JButton extends JButton {
             public void actionPerformed(ActionEvent e) {
                 fugusweeper.initFugus();
 		fugusweeper_jpanel.resetCellState();
+		fugusweeper_jlabel.setText("");
             }
         });
     }
 
 }
+class Fugusweeper_JLabel extends JLabel {
+    private Fugusweeper fugusweeper;
+
+    public Fugusweeper_JLabel(Fugusweeper fugusweeper){
+	this.fugusweeper = fugusweeper;
+
+        setText("");
+	setHorizontalAlignment(SwingConstants.CENTER);
+	setVerticalAlignment(SwingConstants.CENTER);
+    }
+}
+
 class Fugusweeper_JPanel extends JPanel implements MouseListener {
     private Fugusweeper fugusweeper;
+    private Fugusweeper_JLabel fugusweeper_jlabel;
 
     private int startX;
     private int startY;
     private int numCells;
     private int cellSize;
-    private String headerText; // DEPRECATED, GET OTHER CLASS
     private boolean freezePanel;
 
     private int[][] cellState;
@@ -87,12 +115,13 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
     private Image flagImage;
     private Font font;
 
-    public Fugusweeper_JPanel(Fugusweeper fugusweeper) {
+    public Fugusweeper_JPanel(Fugusweeper fugusweeper, Fugusweeper_JLabel fugusweeper_jlabel) {
 	this.fugusweeper = fugusweeper;
+	this.fugusweeper_jlabel = fugusweeper_jlabel;
+
         this.numCells = fugusweeper.getNumCells();
 	this.cellState = new int[numCells][numCells];
 	this.cellNearby = new int[numCells][numCells];
-	this.headerText = "Fugusweeper!";
 
 	calculateGrid();
 
@@ -118,18 +147,21 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
         startY = (getHeight() - cellSize * numCells) / 2;
     }
 
+    private void revealAllFugu() {
+        for (int i = 0; i < numCells; i++) {
+            for (int j = 0; j < numCells; j++) {
+                if (fugusweeper.isFugu(i, j)) {
+                    cellState[i][j] = 3;
+                }
+            }
+        }
+        repaint();
+    }
+
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         calculateGrid();
-
-        // Header, NOW DEPRECATED, GET OTHER CLASS
-	/*
-	font = new Font("Comic Sans MS", Font.BOLD, marginY);
-        g.setFont(font);
-        fontMetrics = g.getFontMetrics(font);
-        g.drawString(headerText, getWidth() / 2 - fontMetrics.stringWidth(headerText) / 2, 3*marginY/4);
-	*/
 	
 	// Cell fugu nearby indicator
 	font = new Font("Comic Sans MS", Font.BOLD, cellSize);
@@ -184,14 +216,14 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
 		    // Right now the main way panel communicates with Fugusweeper is through revealCell
 		    revealedCellState = fugusweeper.revealCell(relativeX, relativeY);
 		    if (revealedCellState == -1) {
-			headerText = "You won!!!";
+			fugusweeper_jlabel.setText("You won! Try again");
 			freezePanel = true;
 			revealedCellState = 1;
 		    }
 		    else if (revealedCellState == 3) {
-			headerText = "You lost!!!";
+			fugusweeper_jlabel.setText("You lost! Try again");
+            		revealAllFugu();
 			freezePanel = true;
-            revealAllFugu();
 		    }
 		    cellState[relativeX][relativeY] = revealedCellState;
 		    cellNearby[relativeX][relativeY] = fugusweeper.getNearby(relativeX, relativeY);
@@ -209,17 +241,6 @@ class Fugusweeper_JPanel extends JPanel implements MouseListener {
 	    }
 	    repaint();
 	}
-    }
-
-    private void revealAllFugu() {
-        for (int i = 0; i < numCells; i++) {
-            for (int j = 0; j < numCells; j++) {
-                if (fugusweeper.isFugu(i, j)) {
-                    cellState[i][j] = 3;
-                }
-            }
-        }
-        repaint();
     }
 
     // These must be present because of implementation
@@ -242,15 +263,11 @@ class Fugusweeper {
 
     private boolean[][] fugus;
     private boolean[][] revealed;
-    public boolean isFugu(int x, int y) //could just be implemented by making "fugus" public
-    {
-        return fugus[x][y];
-    }
 
     // Constructor
     public Fugusweeper(int numCells) {
 	setNumCells(numCells);
-	setNumFugus(numCells*numCells/14); // Temporary
+	setNumFugus(numCells*numCells/12); // Temporary
 
 	initFugus();
 
@@ -320,6 +337,7 @@ class Fugusweeper {
     public void initFugus() {
 	this.fugus = new boolean[getNumCells()][getNumCells()];
 	this.revealed = new boolean[getNumCells()][getNumCells()];
+	setNumCellsLeft(getNumCellsLeft());
 
         Random random = new Random();
         int iNumFugus = 0;
@@ -333,6 +351,9 @@ class Fugusweeper {
                 iNumFugus++;
             }
         }
+    }
+    public boolean isFugu(int x, int y) {
+        return this.fugus[x][y];
     }
 }
 
